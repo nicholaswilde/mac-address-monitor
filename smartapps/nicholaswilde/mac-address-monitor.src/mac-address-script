@@ -1,78 +1,39 @@
 #!/bin/sh
 
-LivingRoomTV=Off
-ConservatoryTV=Off
-BedroomTV=Off
+# Define variables
+accessToken="ACCESS-TOKEN"
+appId="APP-ID"
+appMac="00:00:00:00:00:00"
+targetSpec=`ip route show | grep -i 'default via'| awk '{print $3 }'`
+header="Authorization: Bearer "$accessToken
 
-macadresser=`wl -i eth1 assoclist`
-antal=0
-antal=`qcsapi_sockrpc get_count_assoc wifi0`
+baseUrl="https://graph-na02-useast1.api.smartthings.com/api/smartapps/installations"
+onParams="device/on"                          
+offParams="device/off"                          
 
-while [ $antal -gt 0 ]
-do
-  antal=`expr $antal - 1`
-  macadresser="`qcsapi_sockrpc get_station_mac_addr wifi0 $antal`;$macadresser"
-done
+onUrl=$baseUrl"/"$appId"/"$onParams
+offUrl=$baseUrl"/"$appId"/"$offParams
 
-case "$macadresser" in
- *XX:XX:XX:XX:XX:XX*)
- LivingRoomTV=On
- ;;
+deviceState="off"
+  
+# Get list of all mac addresses on the network
+macAddresses=`sudo nmap -sP "$targetSpec"/24 | awk '/MAC Address:/{printf $3;print "; ";}'`
+
+# List all MAC addresses
+# echo $macAddresses
+  
+case "$macAddresses" in
+  *"$appMac"*)
+  echo "address found"
+  deviceState=on
+  ;;
 esac
-
-case "$macadresser" in
- *XX:XX:XX:XX:XX:XX*)
- ConservatoryTV=On
- ;;
-esac
-
-case "$macadresser" in
- *XX:XX:XX:XX:XX:XX*)
- BedroomTV=On
- ;;
-esac
-
-if [ "$LivingRoomTV" = On ]
+  
+if [ "$deviceState" = on ]    
 then
- if [ ! -f /jffs/scripts/CheckTV/LivingRoomTVOn ]
- then
-  touch /jffs/scripts/CheckTV/LivingRoomTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/on?access_token=<Access Token>" -k
- fi
+  echo "turning on"
+  curl -H "$header" -X GET "$onUrl"
 else
- if [ -f /jffs/scripts/CheckTV/LivingRoomTVOn ]
- then
-  rm -f /jffs/scripts/CheckTV/LivingRoomTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/off?access_token=<Access Token>" -k
-  fi
-fi
-
-if [ "$ConservatoryTV" = On ]
-then
- if [ ! -f /jffs/scripts/CheckTV/ConservatoryTVOn ]
- then
-  touch /jffs/scripts/CheckTV/ConservatoryTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/on?access_token=<Access Token>" -k
- fi
-else
- if [ -f /jffs/scripts/CheckTV/ConservatoryTVOn ]
- then
-  rm -f /jffs/scripts/CheckTV/ConservatoryTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/off?access_token=<Access Token>" -k
- fi
-fi
-
-if [ "$BedroomTV" = On ]
-then
- if [ ! -f /jffs/scripts/CheckTV/BedroomTVOn ]
- then
-  touch /jffs/scripts/CheckTV/BedroomTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/on?access_token=<Access Token>" -k
- fi
-else
- if [ -f /jffs/scripts/CheckTV/BedroomTVOn ]
- then
-  rm -f /jffs/scripts/CheckTV/BedroomTVOn
-  curl "https://graph-eu01-euwest1.api.smartthings.com/api/smartapps/installations/<App Id>/TV/off?access_token=<Access Token>" -k
- fi
+  echo "turning off"
+  curl -H "$header" -X GET "$offUrl"
 fi
