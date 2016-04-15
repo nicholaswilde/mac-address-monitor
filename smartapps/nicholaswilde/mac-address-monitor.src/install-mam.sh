@@ -20,6 +20,7 @@ configFile="$installDir.cfg"        #
 defaultDir="$homeDir/$installDir"   # 
 installPath=""                      # Installation path
 filePath=""                         # Path of script file
+configPath=""
 deviceName=""                       # Name of device
 
 downloadUrl='https://github.com/nicholaswilde/$installDir/blob/master/smartapps/nicholaswilde/$installDir.src/$scriptFile'
@@ -42,6 +43,7 @@ echo "$deviceName" | awk '{print tolower($0)}'
 scriptFile="$deviceName.sh"
 configFile="$deviceName.cfg"
 defaultDir="$homeDir/$deviceName"
+
 
 #-- AppID --#
 echo -n "Enter the AppID and press [ENTER]: "
@@ -72,6 +74,7 @@ if [ $installPath = "" ]; then
 fi
 
 filePath="$installPath/$scriptFile"
+configPath="$installPath/$configFile"
 
 #-- Cron Interval --#
 echo -n "Cron interval: "
@@ -138,15 +141,22 @@ echo Making directory ...
 
 ### Installation ###
 # Download the script
-echo Downloading script ...
+echo "Downloading script ..."
 # wget $downloadUrl -O $filePath
 
 # Change file permissions
 echo Making the script executable ...
-# chmod +x $filePath
+# chmod +x "$filePath"
+
+# Export credentials to config file
+echo "Exporting credentials to $configFile ..."
+# delete file
+# touch "$configPath"
+# echo "appId=$appId" >> "$configPath"
+# echo "secretKey=$secretKey" >> "$configPath"
 
 # Add script to cron
-echo Adding script to cron ...
+echo "Adding script to cron ..."
 
 # case "$cronInterval" in
 #   "15")
