@@ -14,7 +14,7 @@ homeDir=`eval echo ~$user` >&2          # Home directory of user
 installFile=`basename "$0"` >&2         # Name of install file
 
 scriptName="MAC Address Monitor"    # Name of script
-installDir="mac-address-monitor"    #    
+installDir="mac-address-monitor"    # 
 scriptFile="$installDir.sh"         # 
 configFile="$installDir.cfg"        # 
 defaultDir="$homeDir/$installDir"   # 
@@ -49,7 +49,7 @@ defaultDir="$homeDir/$deviceName"
 echo -n "Enter the AppID and press [ENTER]: "
 read appId
 
-if [ $secretKey = "" ]; then
+if [ "$appId" = "" ]; then
     echo An AppID was not entered
     echo Exiting ...
     exit 1
@@ -59,7 +59,7 @@ fi
 echo -n "Enter the Secret Key and press [ENTER]: "
 read secretKey
 
-if [ $secretKey = "" ]; then
+if [ "$secretKey" = "" ]; then
     echo "A Secret Key was not entered!"
     echo "Exiting ..."
     exit 1
@@ -67,9 +67,9 @@ fi
 
 #-- Installation Directory --#
 echo "Script installation directory [$defaultDir]:"
-read -n installPath
+read installPath
 
-if [ $installPath = "" ]; then
+if [ "$installPath" = "" ]; then
     installPath=$defaultDir
 fi
 
@@ -77,7 +77,7 @@ filePath="$installPath/$scriptFile"
 configPath="$installPath/$configFile"
 
 #-- Cron Interval --#
-echo -n "Cron interval: "
+echo "Cron interval: "
 # PS3='Please enter your choice: '
 options=("15s" "30s" "60s" "Quit")
 select opt in "${options[@]}"; do
@@ -85,14 +85,17 @@ select opt in "${options[@]}"; do
         "15s")
             echo "you chose 15s"
             cronInterval=15
+            break
             ;;
         "30s")
             echo "you chose 30s"
             cronInterval=30
+            break
             ;;
         "60s")
             echo "you chose 60s"
             cronInterval=60
+            break
             ;;
         "Quit")
             break
@@ -105,7 +108,7 @@ done
 echo Checking for required packages ...
 bNmap=`which nmap` >&2
 
-if [ bNmap = "" ]; then
+if [ "$bNmap" = "" ]; then
     echo -n "nmap is not installed. Would you like to install it? [Y/N]: "
     read nmapRes
     
@@ -114,19 +117,25 @@ if [ bNmap = "" ]; then
         # sudo apt-get -y install nmap
         # Check that nmap was installed properly
         bNmap=`which nmap` >&2
-        
+        if [ "$bNmap" = "" ]; then
+            echo "There was an error install nmap."
+            echo "Exiting ..."
+            exit 1
+        fi
     else
         echo "nmap is needed for $scriptName"
         echo "Exiting ..."
         exit 1
     fi
+else
+    echo "nmap is installed"
 fi
 
 #-- MAC address --#
-echo
+#echo
 
 echo -n "Device MAC address [00:00:00:00:00:00]:"
-read -n macAddress
+read macAddress
 
 # Validate macAddress
 
