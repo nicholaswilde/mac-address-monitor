@@ -3,7 +3,7 @@
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
 
 # Check if run as sudo
-if [ $USER = "root" ]; then
+if [ "$USER" != "root" ]; then
     echo Please run as sudo
     exit 1
 fi
@@ -23,7 +23,7 @@ filePath=""                         # Path of script file
 configPath=""
 deviceName=""                       # Name of device
 
-downloadUrl='https://github.com/nicholaswilde/$installDir/blob/master/smartapps/nicholaswilde/$installDir.src/$scriptFile'
+downloadUrl="https://raw.githubusercontent.com/nicholaswilde/$installDir/master/smartapps/nicholaswilde/$installDir.src/$scriptFile"
 
 appId=""
 secretKey=""
@@ -34,16 +34,16 @@ echo -n "Enter the device name and press [ENTER]: "
 read deviceName
 
 # Replace all spaces with dashes
-deviceName=${deviceName// /-}
+deviceName=${deviceName// /-} >&2
 
-# Conver to lowercase
-echo "$deviceName" | awk '{print tolower($0)}'
+# Convert to lowercase
+deviceName=`echo -n "$deviceName" | awk '{print tolower($0)}'` >&2
+#echo "$deviceName"
 
 # Redefine variables based on device name
 scriptFile="$deviceName.sh"
 configFile="$deviceName.cfg"
 defaultDir="$homeDir/$deviceName"
-
 
 #-- AppID --#
 echo -n "Enter the AppID and press [ENTER]: "
@@ -66,7 +66,7 @@ if [ "$secretKey" = "" ]; then
 fi
 
 #-- Installation Directory --#
-echo "Script installation directory [$defaultDir]:"
+echo -n "Script installation directory [$defaultDir]: "
 read installPath
 
 if [ "$installPath" = "" ]; then
@@ -78,29 +78,31 @@ configPath="$installPath/$configFile"
 
 #-- Cron Interval --#
 echo "Cron interval: "
-# PS3='Please enter your choice: '
 options=("15s" "30s" "60s" "Quit")
 select opt in "${options[@]}"; do
     case $opt in
         "15s")
-            echo "you chose 15s"
+            echo "You chose 15s"
             cronInterval=15
             break
             ;;
         "30s")
-            echo "you chose 30s"
+            echo "You chose 30s"
             cronInterval=30
             break
             ;;
         "60s")
-            echo "you chose 60s"
+            echo "You chose 60s"
             cronInterval=60
             break
             ;;
         "Quit")
-            break
+            echo "Exiting ..."
+            exit 0
             ;;
-        *) echo invalid option;;
+        *)
+            echo "Invalid choice"
+            ;;
     esac
 done
 
@@ -109,50 +111,71 @@ echo Checking for required packages ...
 bNmap=`which nmap` >&2
 
 if [ "$bNmap" = "" ]; then
-    echo -n "nmap is not installed. Would you like to install it? [Y/N]: "
-    read nmapRes
-    
-    if [ nmapRes = "Y" ]; then
-        echo "Installing nmap ..."
-        # sudo apt-get -y install nmap
-        # Check that nmap was installed properly
-        bNmap=`which nmap` >&2
-        if [ "$bNmap" = "" ]; then
-            echo "There was an error install nmap."
-            echo "Exiting ..."
-            exit 1
-        fi
-    else
-        echo "nmap is needed for $scriptName"
-        echo "Exiting ..."
-        exit 1
-    fi
+    echo "nmap is not installed. Would you like to install it?"
+    options=("Yes" "No")
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Yes")
+                echo "Installing nmap ..."
+                # sudo apt-get -y install nmap
+                # Check that nmap was installed properly
+                # bNmap=`which nmap` >&2
+                # if [ "$bNmap" = "" ]; then
+                    # echo "There was an error installing nmap."
+                    # echo "Exiting ..."
+                    # exit 1
+                # fi
+                break
+                ;;
+            "No")
+                echo "nmap is needed for $scriptName"
+                # echo "Exiting ..."
+                # exit 1
+                break
+                ;;
+            *) "Invalid choice. Try 1 or 2";;
+        esac
+    done
 else
-    echo "nmap is installed"
+    echo "nmap is already installed"
 fi
 
 #-- MAC address --#
-#echo
+echo "Scanning network for MAC addresses ..."
 
-echo -n "Device MAC address [00:00:00:00:00:00]:"
+# Get IP address
+targetSpec=`ip route show | grep -i 'default via'| awk '{print $3 }'` >&2
+
+# List MAC addresses using nmap
+nmap -sP "$targetSpec"/24 | awk '/Nmap scan report for/{printf $5;}/MAC Address:/{print " => "$3;}'| sort
+echo -n "Device MAC address [00:00:00:00:00:00]: "
 read macAddress
 
-# Validate macAddress
+# Validate mac address
+if [[ ! "$macAddress" =~ ^([a-fA-F0-9]{2}:){5}[a-zA-Z0-9]{2}$ ]]; then
+    echo "Invalid MAC address"
+    echo "Exiting ..."
+    exit 1
+fi
 
-echo Making directory ...
-#if [ -d t ]; then 
-#   if [ -L t ]; then 
-#      rm t
-#   else 
-#      rmdir t
-#   fi
-#fi
+#-- Installation Directory --#
+if [ -d "$installPath" ]; then
+    echo "Installation directory already exists!"
+else
+    echo "Making directory ..."
+    runuser -l "$user" -c "mkdir \"$installPath\""
+fi
 
 ### Installation ###
 # Download the script
 echo "Downloading script ..."
-# wget $downloadUrl -O $filePath
-
+echo "$downloadUrl"
+runuser -l "$user" -c "wget \"$downloadUrl\" -O \"$filePath\""
+if [ ! "$?" = 0 ]; then
+   echo "Download failed!"
+   echo "Exiting ..."
+   exit 1
+fi
 # Change file permissions
 echo Making the script executable ...
 # chmod +x "$filePath"
