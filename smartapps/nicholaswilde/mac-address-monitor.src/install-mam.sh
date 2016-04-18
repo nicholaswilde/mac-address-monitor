@@ -1,6 +1,7 @@
 #!/bin/bash
 # http://wiki.bash-hackers.org/howto/conffile
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
+# curl -H "Authorization: Bearer ACCESS-TOKEN" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints" | grep -Po '"base_url":.*?[^\\]",'|awk -F: '{ print $3}
 
 # Check if run as sudo
 if [ "$USER" != "root" ]; then
@@ -17,7 +18,7 @@ scriptName="MAC Address Monitor"    # Name of script
 installDir="mac-address-monitor"    # 
 scriptFile="$installDir.sh"         # 
 configFile="$installDir.cfg"        # 
-defaultDir="$homeDir/$installDir"   # 
+defaultDir="$homeDir"   # 
 installPath=""                      # Installation path
 filePath=""                         # Path of script file
 configPath=""
@@ -43,7 +44,7 @@ deviceName=`echo -n "$deviceName" | awk '{print tolower($0)}'` >&2
 # Redefine variables based on device name
 scriptFile="$deviceName.sh"
 configFile="$deviceName.cfg"
-defaultDir="$homeDir/$deviceName"
+defaultDir="$homeDir"
 
 #-- AppID --#
 echo -n "Enter the AppID and press [ENTER]: "
@@ -73,8 +74,12 @@ if [ "$installPath" = "" ]; then
     installPath=$defaultDir
 fi
 
+installPath="$installPath/$installDir"
+
 filePath="$installPath/$scriptFile"
 configPath="$installPath/$configFile"
+
+echo $configPath
 
 #-- Cron Interval --#
 echo "Cron interval: "
@@ -117,14 +122,14 @@ if [ "$bNmap" = "" ]; then
         case $opt in
             "Yes")
                 echo "Installing nmap ..."
-                # sudo apt-get -y install nmap
+                sudo apt-get -y install nmap
                 # Check that nmap was installed properly
-                # bNmap=`which nmap` >&2
-                # if [ "$bNmap" = "" ]; then
-                    # echo "There was an error installing nmap."
-                    # echo "Exiting ..."
-                    # exit 1
-                # fi
+                bNmap=`which nmap` >&2
+                if [ "$bNmap" = "" ]; then
+                    echo "There was an error installing nmap."
+                    echo "Exiting ..."
+                    exit 1
+                fi
                 break
                 ;;
             "No")
@@ -139,6 +144,40 @@ if [ "$bNmap" = "" ]; then
 else
     echo "nmap is already installed"
 fi
+
+bCurl=`which curl` >&2
+
+if [ "$bCurl" = "" ]; then
+    echo "curl is not installed. Would you like to install it?"
+    options=("Yes" "No")
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Yes")
+                echo "Installing curl ..."
+                sudo apt-get -y install curl
+                # Check that nmap was installed properly
+                bCurl=`which curl` >&2
+                if [ "$bCurl" = "" ]; then
+                    echo "There was an error installing curl."
+                    echo "Exiting ..."
+                    exit 1
+                fi
+                break
+                ;;
+            "No")
+                echo "curl is needed for $scriptName"
+                # echo "Exiting ..."
+                # exit 1
+                break
+                ;;
+            *) "Invalid choice. Try 1 or 2";;
+        esac
+    done
+else
+    echo "curl is already installed"
+fi
+
+#baseUrl=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints" | grep -Po '"base_url":.*?[^\\]",'|awk -F: '{print $3}'
 
 #-- MAC address --#
 echo "Scanning network for MAC addresses ..."
@@ -163,47 +202,74 @@ if [ -d "$installPath" ]; then
     echo "Installation directory already exists!"
 else
     echo "Making directory ..."
-    runuser -l "$user" -c "mkdir \"$installPath\""
+    runuser -l "$user" -c "mkdir -p \"$installPath\""
+    echo $?
 fi
 
 ### Installation ###
 # Download the script
 echo "Downloading script ..."
 echo "$downloadUrl"
-runuser -l "$user" -c "wget \"$downloadUrl\" -O \"$filePath\""
+runuser -l "$user" -c "curl --create-dirs -o \"$filePath\" \"$downloadUrl\""
 if [ ! "$?" = 0 ]; then
    echo "Download failed!"
    echo "Exiting ..."
    exit 1
 fi
 # Change file permissions
-echo Making the script executable ...
-# chmod +x "$filePath"
+echo "Making the script executable ..."
+chmod +x "$filePath"
 
-# Export credentials to config file
-echo "Exporting credentials to $configFile ..."
-# delete file
-# touch "$configPath"
-# echo "appId=$appId" >> "$configPath"
-# echo "secretKey=$secretKey" >> "$configPath"
+#-- Config file --#
+bConfigSkip=""
+# Check if file already exists
+if [ -f "$configPath" ]; then
+    echo "$configPath already exists"
+    echo "Would you like to replace it?"
+    options=("Yes" "No")
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Yes")
+                echo "Deleting $configPath ..."
+                rm "$configPath"
+                break
+                ;;
+            "No")
+                echo "Skipping config file export ..."
+                bConfigSkip="false"
+                break
+                ;;
+            *) "Invalid choice. Try 1 or 2";;
+        esac
+    done
+fi
+
+# Export config file
+if [ ! "$bConfigSkip" = "false" ]; then
+    echo "Exporting credentials to $configFile ..."
+    runuser -l "$user" -c "touch \"$configPath\""
+    runuser -l "$user" -c "echo \"macAddress=$macAddress\" | tee -a \"$configPath\" &> /dev/null"
+    runuser -l "$user" -c "echo \"appId=$appId\" | tee -a \"$configPath\" &> /dev/null"
+    runuser -l "$user" -c "echo \"secretKey=$secretKey\" | tee -a \"$configPath\" &> /dev/null"
+fi
 
 # Add script to cron
 echo "Adding script to cron ..."
 
 # case "$cronInterval" in
 #   "15")
-        # cru a $scriptName "* * * * * $filePath"
-        # cru a $scriptName30 "* * * * * sleep 15; $filePath"
-        # cru a $scriptName30 "* * * * * sleep 30; $filePath"
-        # cru a $scriptName30 "* * * * * sleep 45; $filePath"
+        # runuser -l "$user" -c "cru a $scriptName \"* * * * * $filePath\""
+        # runuser -l "$user" -c "cru a $scriptName30 \"* * * * * sleep 15; $filePath\""
+        # runuser -l "$user" -c "cru a $scriptName30 \"* * * * * sleep 30; $filePath\""
+        # runuser -l "$user" -c "cru a $scriptName30 \"* * * * * sleep 45; $filePath\""
         #;;
 # "30")
-        # cru a $scriptName "* * * * * $filePath"
-        # cru a $scriptName30 "* * * * * sleep 30; $filePath"
+        # runuser -l "$user" -c "cru a $scriptName \"* * * * * $filePath\""
+        # runuser -l "$user" -c "cru a $scriptName30 \"* * * * * sleep 30; $filePath\""
         #;;
 # "60")
-        # cru a $scriptName "* * * * * $filePath"
-        #;; 
+        # runuser -l "$user" -c "cru a $scriptName \"* * * * * $filePath\""
+        #;;
 # esac
 
 echo "Installation finished!"
