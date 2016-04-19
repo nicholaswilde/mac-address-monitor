@@ -1,7 +1,6 @@
 #!/bin/bash
 # http://wiki.bash-hackers.org/howto/conffile
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
-# curl -H "Authorization: Bearer ACCESS-TOKEN" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints" | grep -Po '"base_url":.*?[^\\]",'|awk -F: '{ print $3}
 
 # Check if run as sudo
 if [ "$USER" != "root" ]; then
@@ -177,7 +176,19 @@ else
     echo "curl is already installed"
 fi
 
-#baseUrl=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints" | grep -Po '"base_url":.*?[^\\]",'|awk -F: '{print $3}'
+curlResp=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints"` &> /dev/null
+
+curlErr=`echo $curlResp | grep -Po '(?<="error":")[^"]*'` &> /dev/null
+
+if [ ! $curlErr = "" ]; then
+    echo "An error occured! $curlErr"
+    echo "Exiting ..."
+    exit 1
+fi
+
+baseUrl=`echo $curlResp | grep -Po '(?<="base_url":")[^"]*'` &> /dev/null
+
+echo "baseUrl: $baseUrl"
 
 #-- MAC address --#
 echo "Scanning network for MAC addresses ..."

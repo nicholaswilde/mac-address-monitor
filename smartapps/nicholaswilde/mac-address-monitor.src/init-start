@@ -1,2 +1,0 @@
-#!/bin/sh
-cru a CheckTVon "* * * * * /jffs/scripts/CheckTVon"
