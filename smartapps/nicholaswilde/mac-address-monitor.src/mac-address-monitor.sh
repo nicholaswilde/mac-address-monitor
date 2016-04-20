@@ -1,15 +1,27 @@
 #!/bin/sh
 
-fileName=`basename "$0"` >&2         # Name of install file
-source ./$fileName.cfg
+# Get name of config file
+fileName=`basename "$0"`         # Name of script
+configPath="./$fileName.cfg"
+
+# Check that config file exists
+if [ ! -f "$configPath" ]; then
+  logger "$configPath does not exist"
+  logger "Exiting ..."
+  exit 1
+fi
+
+source $configPath
 
 # Define variables
-echo $appId
-appMac="$macAddress"
-targetSpec=`ip route show | grep -i 'default via'| awk '{print $3 }'`
-header="Authorization: Bearer "$secretKey
+echo "$baseUrl"
+echo "$secretKey"
+echo "$appId"
+echo "$macAddress"
 
-baseUrl="https://graph-na02-useast1.api.smartthings.com/api/smartapps/installations"
+targetSpec=`ip route show | grep -i 'default via'| awk '{print $3 }'`
+header="Authorization: Bearer $secretKey"
+
 onParams="device/on"
 offParams="device/off"
 
@@ -22,10 +34,10 @@ deviceState="off"
 macAddresses=`sudo nmap -sP "$targetSpec"/24 | awk '/MAC Address:/{printf $3;print "; ";}'`
 
 # List all MAC addresses
-# echo $macAddresses
+# echo "$macAddresses"
 
 case "$macAddresses" in
-  *"$appMac"*)
+  *"$macAddress"*)
   echo "address found"
   deviceState=on
   ;;
