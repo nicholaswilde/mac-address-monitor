@@ -1,6 +1,7 @@
 #!/bin/bash
 # http://wiki.bash-hackers.org/howto/conffile
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
+# \b[a-zA-Z0-9]{8}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{12}\b
 
 # Check if run as sudo
 if [ "$USER" != "root" ]; then
