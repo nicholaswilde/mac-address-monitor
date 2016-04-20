@@ -14,9 +14,9 @@ homeDir=`eval echo ~$user` >&2          # Home directory of user
 installFile=`basename "$0"` >&2         # Name of install file
 
 scriptName="MAC Address Monitor"    # Name of script
-installDir="mac-address-monitor"    # 
-scriptFile="$installDir.sh"         # 
-configFile="$installDir.cfg"        # 
+installDir="mac-address-monitor"    #
+scriptFile="$installDir.sh"         #
+configFile="$installDir.cfg"        #
 defaultDir="$homeDir"   # 
 installPath=""                      # Installation path
 filePath=""                         # Path of script file
@@ -176,17 +176,49 @@ else
     echo "curl is already installed"
 fi
 
+#-- Secret Key --#
+
+# Find index of $array
+function findIndex() {
+    local i=0;
+    for str in "${array[@]}"; do
+        if [[ $str == *$1* ]]; then
+            echo $i
+            return
+        else
+            ((i++))
+        fi
+    done
+    echo "-1"
+}
+
 curlResp=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints"` &> /dev/null
 
+# See if an error was returned
 curlErr=`echo $curlResp | grep -Po '(?<="error":")[^"]*'` &> /dev/null
 
+# Exit if an error occured
 if [ ! $curlErr = "" ]; then
     echo "An error occured! $curlErr"
     echo "Exiting ..."
     exit 1
 fi
 
-baseUrl=`echo $curlResp | grep -Po '(?<="base_url":")[^"]*'` &> /dev/null
+# Find the URIs from the JSON response
+uris=`echo $curlResp | grep -Po '(?<="uri":")[^"]*'` &> /dev/null
+
+# Convert uris to an array
+readarray -t array <<<"$uris"
+
+# Find the index of the uri
+index=`findIndex $appId`
+
+# Find the baseUrls from the JSON response
+baseUrls=`echo $curlResp | grep -Po '(?<="base_url":")[^"]*'` &> /dev/null
+
+# Convert baseUrls to array
+readarray -t baseUrls <<<"$baseUrls"
+baseUrl=${baseUrls[$index]}
 
 echo "baseUrl: $baseUrl"
 
@@ -259,6 +291,7 @@ fi
 if [ ! "$bConfigSkip" = "false" ]; then
     echo "Exporting credentials to $configFile ..."
     runuser -l "$user" -c "touch \"$configPath\""
+    runuser -l "$user" -c "echo \"baseUrl=$baseUrl\" | tee -a \"$configPath\" &> /dev/null"
     runuser -l "$user" -c "echo \"macAddress=$macAddress\" | tee -a \"$configPath\" &> /dev/null"
     runuser -l "$user" -c "echo \"appId=$appId\" | tee -a \"$configPath\" &> /dev/null"
     runuser -l "$user" -c "echo \"secretKey=$secretKey\" | tee -a \"$configPath\" &> /dev/null"
