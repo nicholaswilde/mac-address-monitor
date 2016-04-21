@@ -1,7 +1,10 @@
 #!/bin/bash
 # http://wiki.bash-hackers.org/howto/conffile
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
-# \b[a-zA-Z0-9]{8}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{4}[-][a-zA-Z0-9]{12}\b
+
+# Debug 
+bDebug = "true"
+# TODO: Add debug function
 
 # Check if run as sudo
 if [ "$USER" != "root" ]; then
@@ -29,89 +32,7 @@ downloadUrl="https://raw.githubusercontent.com/nicholaswilde/$installDir/master/
 appId=""
 secretKey=""
 
-### User input ###
-#-- Device Name --#
-echo -n "Enter the device name and press [ENTER]: "
-read deviceName
-
-# Replace all spaces with dashes
-deviceName=${deviceName// /-} >&2
-
-# Convert to lowercase
-deviceName=`echo -n "$deviceName" | awk '{print tolower($0)}'` >&2
-#echo "$deviceName"
-
-# Redefine variables based on device name
-scriptFile="$deviceName.sh"
-configFile="$deviceName.cfg"
-defaultDir="$homeDir"
-
-#-- AppID --#
-echo -n "Enter the AppID and press [ENTER]: "
-read appId
-
-if [ "$appId" = "" ]; then
-    echo An AppID was not entered
-    echo Exiting ...
-    exit 1
-fi
-
-#-- Secret Key --#
-echo -n "Enter the Secret Key and press [ENTER]: "
-read secretKey
-
-if [ "$secretKey" = "" ]; then
-    echo "A Secret Key was not entered!"
-    echo "Exiting ..."
-    exit 1
-fi
-
-#-- Installation Directory --#
-echo -n "Script installation directory [$defaultDir]: "
-read installPath
-
-if [ "$installPath" = "" ]; then
-    installPath=$defaultDir
-fi
-
-installPath="$installPath/$installDir"
-
-filePath="$installPath/$scriptFile"
-configPath="$installPath/$configFile"
-
-echo $configPath
-
-#-- Cron Interval --#
-echo "Cron interval: "
-options=("15s" "30s" "60s" "Quit")
-select opt in "${options[@]}"; do
-    case $opt in
-        "15s")
-            echo "You chose 15s"
-            cronInterval=15
-            break
-            ;;
-        "30s")
-            echo "You chose 30s"
-            cronInterval=30
-            break
-            ;;
-        "60s")
-            echo "You chose 60s"
-            cronInterval=60
-            break
-            ;;
-        "Quit")
-            echo "Exiting ..."
-            exit 0
-            ;;
-        *)
-            echo "Invalid choice"
-            ;;
-    esac
-done
-
-#-- Check for required packages --#
+#----------------------- Check for required packages ---------------------------#
 echo Checking for required packages ...
 bNmap=`which nmap` >&2
 
@@ -176,6 +97,94 @@ if [ "$bCurl" = "" ]; then
 else
     echo "curl is already installed"
 fi
+
+############################# User input ######################################
+#----------------------------- Secret Key ------------------------------------#
+echo -n "Enter the Secret Key and press [ENTER]: "
+read secretKey
+
+# Validate the secret key
+if [[ ! "$secretKey" =~ ^[a-zA-Z0-9]{8}[-]([a-zA-Z0-9]{4}-){3}[a-zA-Z0-9]{12}$ ]]; then
+    echo "The Secret Key was not entered or invalid!"
+    echo "Exiting ..."
+    exit 1
+fi
+
+#---------------------------- Device Name ------------------------------------#
+echo -n "Enter the device name and press [ENTER]: "
+read deviceName
+
+# Replace all spaces with dashes
+deviceName=${deviceName// /-} >&2
+
+# Convert to lowercase
+deviceName=`echo -n "$deviceName" | awk '{print tolower($0)}'` >&2
+#echo "$deviceName"
+
+# Redefine variables based on device name
+scriptFile="$deviceName.sh"
+configFile="$deviceName.cfg"
+defaultDir="$homeDir"
+
+#------------------------------ AppID ----------------------------------------#
+# TODO: Get list of appIds using secretKey and present options including a custom one
+echo -n "Enter the AppID and press [ENTER]: "
+read appId
+
+if [ "$appId" = "" ]; then
+    echo An AppID was not entered
+    echo Exiting ...
+    exit 1
+fi
+
+#---------------------- Installation Directory -------------------------------#
+echo -n "Script installation directory [$defaultDir]: "
+read installPath
+
+if [ "$installPath" = "" ]; then
+    installPath=$defaultDir
+fi
+
+installPath="$installPath/$installDir"
+
+filePath="$installPath/$scriptFile"
+configPath="$installPath/$configFile"
+
+# echo $configPath
+
+#-------------------------- Cron Interval -------------------------------------#
+# TODO: Add timer and present only possible options
+
+echo "Cron interval: "
+options=("15s" "30s" "60s" "Quit")
+select opt in "${options[@]}"; do
+    case $opt in
+        "15s")
+            echo "You chose 15s"
+            cronInterval=15
+            break
+            ;;
+        "30s")
+            echo "You chose 30s"
+            cronInterval=30
+            break
+            ;;
+        "60s")
+            echo "You chose 60s"
+            cronInterval=60
+            break
+            ;;
+        "Quit")
+            echo "Exiting ..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+done
+
+
 
 #-- Secret Key --#
 
