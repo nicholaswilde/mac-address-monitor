@@ -2,9 +2,14 @@
 # http://wiki.bash-hackers.org/howto/conffile
 # https://github.com/nicholaswilde/mac-address-monitor/tree/master/smartapps/nicholaswilde/mac-address-monitor.src
 
-# Debug 
-bDebug = "true"
-# TODO: Add debug function
+# Debug
+DEBUG=true
+
+function debug(){
+    if [ "$DEBUG" = true ]; then
+        echo $1
+    fi
+}
 
 # Check if run as sudo
 if [ "$USER" != "root" ]; then
@@ -110,6 +115,66 @@ if [[ ! "$secretKey" =~ ^[a-zA-Z0-9]{8}[-]([a-zA-Z0-9]{4}-){3}[a-zA-Z0-9]{12}$ ]
     exit 1
 fi
 
+# Find index of $array
+function findIndex() {
+    local i=0;
+    for str in "${array[@]}"; do
+        if [[ $str == *$1* ]]; then
+            echo $i
+            return
+        else
+            ((i++))
+        fi
+    done
+    echo "-1"
+}
+
+curlResp=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints"`
+
+err=$?
+
+# Exit if an error occured
+if [ ! "$err" = 0 ]; then
+    echo "An error occured! cUrl error code: $err"
+    echo "Exiting ..."
+    exit 1
+fi
+
+# See if an error was returned
+curlErr=`echo $curlResp | grep -Po '(?<="error":")[^"]*'` &> /dev/null
+
+# Exit if an error occured
+if [ ! $curlErr = "" ]; then
+    echo "An error occured! $curlErr"
+    echo "Exiting ..."
+    exit 1
+fi
+
+# Find the URIs from the JSON response
+uris=`echo $curlResp | grep -Po '(?<="uri":")[^"]*'` &> /dev/null
+
+# Convert uris to an array
+readarray -t array <<<"$uris"
+
+# Find the index of the uri
+index=`findIndex $appId`
+
+#debug "index: $index"
+
+# Find the baseUrls from the JSON response
+baseUrls=`echo $curlResp | grep -Po '(?<="base_url":")[^"]*'` &> /dev/null
+
+#debug "baseUrls: $baseUrls"
+
+# Convert baseUrls to array
+readarray -t baseUrls <<<"$baseUrls"
+baseUrl=${baseUrls[$index]}
+
+# Empty index
+index=""
+
+debug "baseUrl: $baseUrl"
+
 #---------------------------- Device Name ------------------------------------#
 echo -n "Enter the device name and press [ENTER]: "
 read deviceName
@@ -150,7 +215,7 @@ installPath="$installPath/$installDir"
 filePath="$installPath/$scriptFile"
 configPath="$installPath/$configFile"
 
-# echo $configPath
+debug "configPath: $configPath"
 
 #-------------------------- Cron Interval -------------------------------------#
 # TODO: Add timer and present only possible options
@@ -184,56 +249,9 @@ select opt in "${options[@]}"; do
     esac
 done
 
-
-
-#-- Secret Key --#
-
-# Find index of $array
-function findIndex() {
-    local i=0;
-    for str in "${array[@]}"; do
-        if [[ $str == *$1* ]]; then
-            echo $i
-            return
-        else
-            ((i++))
-        fi
-    done
-    echo "-1"
-}
-
-curlResp=`curl -H "Authorization: Bearer $secretKey" -X GET "https://graph.api.smartthings.com/api/smartapps/endpoints"` &> /dev/null
-
-# See if an error was returned
-curlErr=`echo $curlResp | grep -Po '(?<="error":")[^"]*'` &> /dev/null
-
-# Exit if an error occured
-if [ ! $curlErr = "" ]; then
-    echo "An error occured! $curlErr"
-    echo "Exiting ..."
-    exit 1
-fi
-
-# Find the URIs from the JSON response
-uris=`echo $curlResp | grep -Po '(?<="uri":")[^"]*'` &> /dev/null
-
-# Convert uris to an array
-readarray -t array <<<"$uris"
-
-# Find the index of the uri
-index=`findIndex $appId`
-
-# Find the baseUrls from the JSON response
-baseUrls=`echo $curlResp | grep -Po '(?<="base_url":")[^"]*'` &> /dev/null
-
-# Convert baseUrls to array
-readarray -t baseUrls <<<"$baseUrls"
-baseUrl=${baseUrls[$index]}
-
-echo "baseUrl: $baseUrl"
-
-#-- MAC address --#
+#------------------------------ MAC address ----------------------------------#
 echo "Scanning network for MAC addresses ..."
+# TODO: List mac addresses to choose from
 
 # Get IP address
 targetSpec=`ip route show | grep -i 'default via'| awk '{print $3 }'` >&2
@@ -259,7 +277,8 @@ else
     echo $?
 fi
 
-### Installation ###
+############################## Installation ###################################
+
 # Download the script
 echo "Downloading script ..."
 echo "$downloadUrl"
@@ -269,11 +288,12 @@ if [ ! "$?" = 0 ]; then
    echo "Exiting ..."
    exit 1
 fi
+
 # Change file permissions
 echo "Making the script executable ..."
 chmod +x "$filePath"
 
-#-- Config file --#
+#----------------------------- Config file -----------------------------------#
 bConfigSkip=""
 # Check if file already exists
 if [ -f "$configPath" ]; then
@@ -307,9 +327,9 @@ if [ ! "$bConfigSkip" = "false" ]; then
     runuser -l "$user" -c "echo \"secretKey=$secretKey\" | tee -a \"$configPath\" &> /dev/null"
 fi
 
-# Add script to cron
+#--------------------------------- Cron --------------------------------------#
 echo "Adding script to cron ..."
-
+# TODO: convert to cru with user switch
 # case "$cronInterval" in
 #   "15")
         # runuser -l "$user" -c "cru a $scriptName \"* * * * * $filePath\""
