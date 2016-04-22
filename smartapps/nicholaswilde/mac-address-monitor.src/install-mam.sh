@@ -109,7 +109,7 @@ echo -n "Enter the Secret Key and press [ENTER]: "
 read secretKey
 
 # Validate the secret key
-if [[ ! "$secretKey" =~ ^[a-zA-Z0-9]{8}[-]([a-zA-Z0-9]{4}-){3}[a-zA-Z0-9]{12}$ ]]; then
+if [[ ! "$secretKey" =~ ^[a-fA-F0-9]{8}[-]([a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}$ ]]; then
     echo "The Secret Key was not entered or invalid!"
     echo "Exiting ..."
     exit 1
@@ -154,7 +154,34 @@ fi
 uris=`echo $curlResp | grep -Po '(?<="uri":")[^"]*'` &> /dev/null
 
 # Convert uris to an array
-readarray -t array <<<"$uris"
+readarray -t uris <<<"$uris"
+
+i=0
+for uri in "${uris[@]}"; do
+    i=$((i+1))
+    echo "$i) $uri"
+done
+i=$((i+1))
+echo "$i) Other"
+
+echo -n "URI of app [1-$i]: "
+read uriChoice
+
+if [[ ! $uriChoice =~ [[:digit:]] ]]; then
+    echo "invalid choice"
+    echo "Exiting ..."
+    exit 1
+fi
+
+if [ "$uriChoice" > $i ]; then
+    echo "Invalid choice"
+    echo "Exiting ..."
+    exit 1
+fi
+
+debug "uriChoice: $uriChoice"
+exit 0
+################################################################################
 
 # Find the index of the uri
 index=`findIndex $appId`
@@ -184,7 +211,7 @@ deviceName=${deviceName// /-} >&2
 
 # Convert to lowercase
 deviceName=`echo -n "$deviceName" | awk '{print tolower($0)}'` >&2
-#echo "$deviceName"
+#debug "deviceName: $deviceName"
 
 # Redefine variables based on device name
 scriptFile="$deviceName.sh"
@@ -195,6 +222,13 @@ defaultDir="$homeDir"
 # TODO: Get list of appIds using secretKey and present options including a custom one
 echo -n "Enter the AppID and press [ENTER]: "
 read appId
+
+# Validate the secret key
+if [[ ! "$appId" =~ ^[a-fA-F0-9]{8}[-]([a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}$ ]]; then
+    echo "The AppID was not entered or invalid!"
+    echo "Exiting ..."
+    exit 1
+fi
 
 if [ "$appId" = "" ]; then
     echo An AppID was not entered
